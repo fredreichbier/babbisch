@@ -32,7 +32,9 @@ class Object(object):
                 self.tag)
 
     def __getstate__(self):
-        return {'coord': self.coord, 'tag': self.tag}
+        return {'coord': self.coord,
+                'tag': self.tag,
+                'type': self.__class__.__name__}
 
 class Type(Object):
     pass
@@ -159,12 +161,13 @@ def resolve_constant(node):
 
 class AnalyzingVisitor(c_ast.NodeVisitor):
     def __init__(self, builtins=BUILTINS):
-        self.objects = {} # typedefs, structs, unions, functions go here
+        self.objects = odict() # typedefs, structs, unions, enums, stuff, functions go here
         self.objects.update(builtins)
 
     def to_json(self):
         import json
-        return json.dumps(self.objects, default=lambda obj: obj.__getstate__())
+        return json.dumps(self.objects.items(),
+                default=lambda obj: obj.__getstate__())
 
     def resolve_type(self, node):
         if isinstance(node, c_ast.IdentifierType):
