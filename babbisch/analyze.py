@@ -207,10 +207,6 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
                 default=lambda obj: obj.get_state(self.objects),
                 **kwargs)
 
-    def generic_visit(self, node):
-        print node
-        c_ast.NodeVisitor.generic_visit(self, node)
-
     def resolve_type(self, node):
         if isinstance(node, c_ast.IdentifierType):
             name = ' '.join(reversed(node.names))

@@ -4,7 +4,7 @@ from babbisch.analyze import AnalyzingVisitor
 from babbisch.utils import ASTCache
 
 cache = ASTCache()
-ast = cache['test.h']
+ast = cache['cairo.h']
 try:
     v = AnalyzingVisitor()
     v.visit(ast)
