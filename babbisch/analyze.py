@@ -312,6 +312,13 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         for param in node.args.params:
             if isinstance(param, c_ast.EllipsisParam):
                 varargs = True
+            elif (len(node.args.params) == 1
+                    and param.name is None
+                    and isinstance(param.type.type, c_ast.IdentifierType)
+                    and param.type.type.names == ['void']):
+                # it's the single `void` parameter signalizing
+                # that there are no arguments.
+                break
             else:
                 argtypes[param.name] = self.resolve_type(param.type)
         obj = Function(format_coord(node.coord), name, rettype, argtypes, varargs)
