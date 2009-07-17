@@ -20,6 +20,11 @@ def format_coord(coord):
     else:
         return None
 
+def format_type(type, objects):
+    if type.tag in objects:
+        type = type.tag
+    return type
+
 class Object(object):
     def __init__(self, coord, tag):
         self.coord = coord
@@ -31,10 +36,11 @@ class Object(object):
                 id(self),
                 self.tag)
 
-    def __getstate__(self):
+    def get_state(self, objects):
         return {'coord': self.coord,
                 'tag': self.tag,
-                'type': self.__class__.__name__}
+                'class': self.__class__.__name__
+                }
 
 class Type(Object):
     pass
@@ -44,9 +50,11 @@ class Typedef(Object):
         Object.__init__(self, coord, tag)
         self.target = target
 
-    def __getstate__(self):
-        state = Object.__getstate__(self)
-        state.update({'target': self.target})
+    def get_state(self, objects):
+        state = Object.get_state(self, objects)
+        state.update({
+            'target': format_type(self.target, objects)
+            })
         return state
 
 class Array(Object):
@@ -56,9 +64,12 @@ class Array(Object):
         self.target = target
         self.size = size
 
-    def __getstate__(self):
-        state = Object.__getstate__(self)
-        state.update({'target': self.target, 'size': self.size})
+    def get_state(self, objects):
+        state = Object.get_state(self, objects)
+        state.update({
+            'target': format_type(self.target, objects),
+            'size': self.size
+            })
         return state
 
 class PrimitiveType(Type):
@@ -83,8 +94,8 @@ class Compound(Type):
     def add_member(self, name, type):
         self.members[name] = type
 
-    def __getstate__(self):
-        state = Type.__getstate__(self)
+    def get_state(self, objects):
+        state = Type.get_state(self, objects)
         state.update({
             'name': self.name,
             'members': self.members.items()
@@ -105,6 +116,13 @@ class Pointer(Type):
         Type.__init__(self, coord, 'POINTER(%s)' % format_tag(type.tag))
         self.type = type
 
+    def get_state(self, objects):
+        state = Type.get_state(self, objects)
+        state.update({
+            'type': format_type(self.type, objects)
+            })
+        return state
+
 class Function(Object):
     def __init__(self, coord, name, rettype, argtypes, varargs=False):
         Object.__init__(self, coord, format_tag(name))
@@ -113,12 +131,19 @@ class Function(Object):
         self.argtypes = argtypes
         self.varargs = varargs
 
-    def __getstate__(self):
-        state = Object.__getstate__(self)
+    def get_state(self, objects):
+        state = Object.get_state(self, objects)
+        # only include argtypes that are not well-known,
+        # otherwise just use the tag as value.
+        argtypes = []
+        for name, type in self.argtypes.iteritems():
+            argtypes.append((name, format_type(type, objects)))
+        # same for rettype
+        rettype = format_type(self.rettype, objects)
         state.update({
             'name': self.name,
-            'rettype': self.rettype,
-            'argtypes': self.argtypes.items(),
+            'rettype': rettype,
+            'argtypes': argtypes,
             'varargs': self.varargs
             })
         return state
@@ -179,7 +204,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
     def to_json(self, **kwargs):
         import json
         return json.dumps(self.objects.items(),
-                default=lambda obj: obj.__getstate__(),
+                default=lambda obj: obj.get_state(self.objects),
                 **kwargs)
 
     def generic_visit(self, node):
@@ -255,14 +280,15 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
     
     def visit_Enum(self, node):
         type = Enum(format_coord(node.coord), node.name)
-        # now, add all values
-        value = 0
-        for enumerator in node.values.enumerators:
-            name = enumerator.name
-            if enumerator.value is not None:
-                value = resolve_constant(enumerator.value)
-            type.add_member(name, value)
-            value += 1
+        # now, add all values, if there are any
+        if node.values is not None:
+            value = 0
+            for enumerator in node.values.enumerators:
+                name = enumerator.name
+                if enumerator.value is not None:
+                    value = resolve_constant(enumerator.value)
+                type.add_member(name, value)
+                value += 1
         # if the enum is not anonymous, add it to
         # the list of known objects
         if node.name is not None:
@@ -272,7 +298,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
     def visit_Typedef(self, node):
         # ignoring storage classes and qualifiers here
         # get the type object
-        type = Typedef(format_coord(node.coord), node.name, self.resolve_type(node.type.type))
+        type = Typedef(format_coord(node.coord), node.name, self.resolve_type(node.type))
         self.add_type(type)
         return type
 
@@ -283,7 +309,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
             type = type.type
         name = type.declname
         # first, handle the return type
-        rettype = self.resolve_type(node.type.type)
+        rettype = self.resolve_type(node.type)
         # then, handle the argument types
         argtypes = odict()
         varargs = False

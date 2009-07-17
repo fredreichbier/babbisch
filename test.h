@@ -1,17 +1,16 @@
-typedef struct _Foobar {
+typedef struct {
     int a;
     char b;
     double c[];
-    struct _Foobar *foobar;
-} Foobar;
+} *Foobar;
 
-enum Yummy {
+typedef enum Yummy {
     A,
     B,
     THREE = 3,
     FOUR,
     DEADBEEF = 0xdeadbeef,
     NEXT
-};
+} Yummy;
 
-int testfunc(struct Foobar arg, ...);
+int *testfunc(Foobar arg, ...);
