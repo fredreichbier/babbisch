@@ -4,11 +4,11 @@ from babbisch.analyze import AnalyzingVisitor
 from babbisch.utils import ASTCache
 
 cache = ASTCache()
-ast = cache['cairo.h']
+ast = cache['test.h']
 try:
     v = AnalyzingVisitor()
     v.visit(ast)
 
-    print v.to_json()
+    print v.to_json(indent=4)
 finally:
     cache.save()

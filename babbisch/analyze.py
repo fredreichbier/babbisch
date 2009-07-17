@@ -49,6 +49,18 @@ class Typedef(Object):
         state.update({'target': self.target})
         return state
 
+class Array(Object):
+    def __init__(self, coord, target, size=None):
+        tag = 'ARRAY(%s, %s)' % (target.tag, format_tag(size))
+        Object.__init__(self, coord, tag)
+        self.target = target
+        self.size = size
+
+    def __getstate__(self):
+        state = Object.__getstate__(self)
+        state.update({'target': self.target, 'size': self.size})
+        return state
+
 class PrimitiveType(Type):
     pass
 
@@ -164,10 +176,15 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         self.objects = odict() # typedefs, structs, unions, enums, stuff, functions go here
         self.objects.update(builtins)
 
-    def to_json(self):
+    def to_json(self, **kwargs):
         import json
         return json.dumps(self.objects.items(),
-                default=lambda obj: obj.__getstate__())
+                default=lambda obj: obj.__getstate__(),
+                **kwargs)
+
+    def generic_visit(self, node):
+        print node
+        c_ast.NodeVisitor.generic_visit(self, node)
 
     def resolve_type(self, node):
         if isinstance(node, c_ast.IdentifierType):
@@ -184,6 +201,15 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
             # just ignoring TypeDecl nodes is not nice, but I don't
             # know what else I should do.
             return self.resolve_type(node.type)
+        elif isinstance(node, c_ast.ArrayDecl):
+            # create an array object for arrays.
+            dim = None
+            if node.dim is not None:
+                dim = resolve_constant(node.dim)
+            return Array(format_coord(node.coord),
+                    self.resolve_type(node.type),
+                    dim
+                    )
         else:
             print 'Unknown type: ',
             node.show()
@@ -202,7 +228,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         for decl in node.decls:
             # ignoring qualifiers and storage classes here
             name = decl.name
-            type = self.resolve_type(decl.type.type)
+            type = self.resolve_type(decl.type)
             obj.add_member(name, type)
 
     def visit_Struct(self, node):
