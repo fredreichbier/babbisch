@@ -236,6 +236,9 @@ class CtypesClient(ObjectVisitor):
 
     def visit_Function(self, obj):
         name = obj['tag']
+        # don't wrap functions with the "static" storage type
+        if 'static' in obj['storage']:
+            return
         wrapper = CtypesFunction(self, name, obj)
         self.add_wrapper_class(name, wrapper)
 

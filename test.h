@@ -1,3 +1,3 @@
 typedef int(*FuncPtr)(float, char, char);
 
-int *testfunc(FuncPtr testy, ...);
+static int *testfunc(FuncPtr testy, ...);

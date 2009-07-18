@@ -134,12 +134,15 @@ class Pointer(Type):
         return state
 
 class Function(Object):
-    def __init__(self, coord, name, rettype, argtypes, varargs=False):
+    def __init__(self, coord, name, rettype, argtypes, varargs=False, storage=None):
         Object.__init__(self, coord, format_tag(name))
+        if storage is None:
+            storage = []
         self.name = name
         self.rettype = rettype
         self.argtypes = argtypes
         self.varargs = varargs
+        self.storage = storage
 
     def get_state(self, objects):
         state = Object.get_state(self, objects)
@@ -154,7 +157,8 @@ class Function(Object):
             'name': self.name,
             'rettype': rettype,
             'argtypes': argtypes,
-            'varargs': self.varargs
+            'varargs': self.varargs,
+            'storage': self.storage,
             })
         return state
 
@@ -246,6 +250,13 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
     def generic_visit(self, node):
         # new generic visit method: just do nothing for unknown nodes.
         pass
+
+    def visit_Decl(self, node):
+        # visit type node and set storage info if type is a FuncDecl.
+        # TODO: what to do otherwise?
+        if isinstance(node.type, c_ast.FuncDecl):
+            obj = self.visit(node.type)
+            obj.storage.extend(node.storage)
 
     def visit_FuncDef(self, node):
         # FuncDefs contain FuncDecls. Just handle it if
