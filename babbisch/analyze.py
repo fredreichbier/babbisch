@@ -326,10 +326,13 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
             # ignoring qualifiers and storage classes here
             name = decl.name
             type = self.resolve_type(decl.type)
-            bitsize = None
-            if decl.bitsize is not None:
-                bitsize = resolve_constant(decl.bitsize)
-            obj.add_member(name, type, bitsize)
+            if isinstance(obj, Struct):
+                bitsize = None
+                if decl.bitsize is not None:
+                    bitsize = resolve_constant(decl.bitsize)
+                obj.add_member(name, type, bitsize)
+            else:
+                obj.add_member(name, type)
 
     def make_functiontype(self, node):
         # don't get the name

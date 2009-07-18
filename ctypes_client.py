@@ -208,7 +208,6 @@ class CtypesClient(ObjectVisitor):
             return type
 
     def add_type(self, type):
-        # ooOokay, it HAS to be an unknown type. Pointer or something.
         klass = type['class']
         tag = type['tag']
         if klass == 'Pointer':
@@ -226,6 +225,9 @@ class CtypesClient(ObjectVisitor):
         elif klass == 'Struct':
             # it's a struct, I suggest it's unnamed?
             self.visit_Struct(type)
+        elif klass == 'Union':
+            # it's an unnamed union
+            self.visit_Union(type)
         elif klass == 'Array':
             # it's a new array type!
             arrtype = self.resolve_type(type['type'])
