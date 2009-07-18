@@ -1,3 +1,4 @@
-typedef int(*FuncPtr)(float, char, char);
-
-static int *testfunc(FuncPtr testy, ...);
+typedef struct {
+    unsigned int one : 1;
+    unsigned int two : 1;
+} BitfieldTest;

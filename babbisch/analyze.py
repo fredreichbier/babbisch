@@ -107,8 +107,24 @@ class Compound(Type):
 class Struct(Compound):
     modifier = 'STRUCT(%s)'
 
+    def add_member(self, name, type, bitsize):
+        self.members[name] = (type, bitsize)
+
+    def get_state(self, objects):
+        state = Type.get_state(self, objects)
+        state.update({
+            'name': self.name,
+            'members': [(name, format_type(typ, objects), bitsize)
+                for name, (typ, bitsize) in self.members.iteritems()
+                ]
+            })
+        return state
+
 class Enum(Compound):
     modifier = 'ENUM(%s)'
+
+    def add_member(self, name, type):
+        self.members[name] = type
 
     def get_state(self, objects):
         state = Type.get_state(self, objects)
@@ -310,7 +326,10 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
             # ignoring qualifiers and storage classes here
             name = decl.name
             type = self.resolve_type(decl.type)
-            obj.add_member(name, type)
+            bitsize = None
+            if decl.bitsize is not None:
+                bitsize = resolve_constant(decl.bitsize)
+            obj.add_member(name, type, bitsize)
 
     def make_functiontype(self, node):
         # don't get the name

@@ -54,7 +54,6 @@ class CtypesCompound(CtypesClass):
         members = []
         for name, obj in self.obj['members']:
             obj = self.client.resolve_object(obj)
-            # TODO: implement bit fields
             members.append('("%s", %s)' % (
                     name,
                     self.client.resolve_type(obj)
@@ -106,6 +105,26 @@ class CtypesStruct(CtypesCompound):
     def __init__(self, client, name, obj):
         CtypesCompound.__init__(self, client, name, obj)
         self.base = 'Structure'
+
+    def _build_code(self):
+        members = []
+        for name, obj, bitsize in self.obj['members']:
+            obj = self.client.resolve_object(obj)
+            if bitsize is not None:
+                members.append('("%s", %s, %d)' % (
+                        name,
+                        self.client.resolve_type(obj),
+                        bitsize
+                        ))
+            else:
+                members.append('("%s", %s)' % (
+                        name,
+                        self.client.resolve_type(obj)
+                        ))
+        if members:
+            self.epilog.append('%s._fields_ = [%s]' % (self.name, ', '.join(members)))
+            self.epilog.append('')
+
 
 class CtypesUnion(CtypesCompound):
     def __init__(self, client, name, obj):
