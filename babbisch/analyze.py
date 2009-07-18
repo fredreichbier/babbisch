@@ -243,6 +243,20 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
                 default=lambda obj: obj.get_state(self.objects),
                 **kwargs)
 
+    def generic_visit(self, node):
+        # new generic visit method: just do nothing for unknown nodes.
+        pass
+
+    def visit_FuncDef(self, node):
+        # FuncDefs contain FuncDecls. Just handle it if
+        # it isn't already known.
+        if node.decl.name not in self.objects:
+            self.visit(node.decl.type)
+
+    def visit_FileAST(self, node):
+        for child in node.children():
+            self.visit(child)
+
     def resolve_type(self, node):
         if isinstance(node, c_ast.IdentifierType):
             name = ' '.join(reversed(node.names))
