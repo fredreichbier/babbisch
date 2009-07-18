@@ -3,9 +3,12 @@
 from UserDict import DictMixin
 
 class odict(DictMixin):
-    def __init__(self):
+    def __init__(self, init=None):
         self._keys = []
         self._data = {}
+        if init is not None:
+            for key, value in init:
+                self[key] = value
     
     def __setitem__(self, key, value):
         if key not in self._data:

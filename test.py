@@ -1,10 +1,11 @@
+import sys
 import json
 
 from babbisch.analyze import AnalyzingVisitor
 from babbisch.utils import ASTCache
 
 cache = ASTCache()
-ast = cache['cairo.h']
+ast = cache[sys.argv[1]]
 try:
     v = AnalyzingVisitor()
     v.visit(ast)

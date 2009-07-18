@@ -58,16 +58,16 @@ class Typedef(Object):
         return state
 
 class Array(Object):
-    def __init__(self, coord, target, size=None):
-        tag = 'ARRAY(%s, %s)' % (target.tag, format_tag(size))
+    def __init__(self, coord, type, size=None):
+        tag = 'ARRAY(%s, %s)' % (type.tag, format_tag(size))
         Object.__init__(self, coord, tag)
-        self.target = target
+        self.type = type
         self.size = size
 
     def get_state(self, objects):
         state = Object.get_state(self, objects)
         state.update({
-            'target': format_type(self.target, objects),
+            'type': format_type(self.type, objects),
             'size': self.size
             })
         return state
@@ -98,7 +98,9 @@ class Compound(Type):
         state = Type.get_state(self, objects)
         state.update({
             'name': self.name,
-            'members': self.members.items()
+            'members': [(name, format_type(typ, objects))
+                for name, typ in self.members.iteritems()
+                ]
             })
         return state
 
@@ -107,6 +109,14 @@ class Struct(Compound):
 
 class Enum(Compound):
     modifier = 'ENUM(%s)'
+
+    def get_state(self, objects):
+        state = Type.get_state(self, objects)
+        state.update({
+            'name': self.name,
+            'members': self.members.items()
+            })
+        return state
 
 class Union(Compound):
     modifier = 'UNION(%s)'
@@ -142,6 +152,32 @@ class Function(Object):
         rettype = format_type(self.rettype, objects)
         state.update({
             'name': self.name,
+            'rettype': rettype,
+            'argtypes': argtypes,
+            'varargs': self.varargs
+            })
+        return state
+
+class FunctionType(Object):
+    def __init__(self, coord, rettype, argtypes, varargs=False):
+        # construct the tag
+        tag = 'FUNCTIONTYPE(%s)' % (', '.join(a.tag for a in ([rettype] + argtypes)))
+
+        Object.__init__(self, coord, tag)
+        self.rettype = rettype
+        self.argtypes = argtypes
+        self.varargs = varargs
+
+    def get_state(self, objects):
+        state = Object.get_state(self, objects)
+        # only include argtypes that are not well-known,
+        # otherwise just use the tag as value.
+        argtypes = []
+        for type in self.argtypes:
+            argtypes.append(format_type(type, objects))
+        # same for rettype
+        rettype = format_type(self.rettype, objects)
+        state.update({
             'rettype': rettype,
             'argtypes': argtypes,
             'varargs': self.varargs
@@ -214,9 +250,11 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         elif isinstance(node, c_ast.PtrDecl):
             # ignoring qualifiers here
             return Pointer(format_coord(node.coord), self.resolve_type(node.type))
-        elif isinstance(node,
-                (c_ast.Struct, c_ast.Enum, c_ast.Union, c_ast.FuncDecl)):
-            # revisit structs, enums, unions and funcs
+        elif isinstance(node, c_ast.FuncDecl):
+            # that's a function pointer declaration, get the function type
+            return self.make_functiontype(node)
+        elif isinstance(node, (c_ast.Struct, c_ast.Enum, c_ast.Union)):
+            # revisit structs, enums, unions
             return self.visit(node)
         elif isinstance(node, c_ast.TypeDecl):
             # just ignoring TypeDecl nodes is not nice, but I don't
@@ -238,9 +276,6 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
     def add_type(self, type):
         self.objects[type.tag] = type
 
-    def visit_FuncDecl(self, node):
-        return_type = self.resolve_type(node.type.type)
-
     def _add_compound_members(self, obj, node):
         if node.decls is None:
 ##            print 'No decls: ',
@@ -251,6 +286,29 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
             name = decl.name
             type = self.resolve_type(decl.type)
             obj.add_member(name, type)
+
+    def make_functiontype(self, node):
+        # don't get the name
+        # first, handle the return type
+        rettype = self.resolve_type(node.type)
+        # then, handle the argument types.
+        # Here, argtypes is just a list (no names included)
+        argtypes = []
+        varargs = False
+        for param in node.args.params:
+            if isinstance(param, c_ast.EllipsisParam):
+                varargs = True
+            elif (len(node.args.params) == 1
+                    and param.name is None
+                    and isinstance(param.type.type, c_ast.IdentifierType)
+                    and param.type.type.names == ['void']):
+                # it's the single `void` parameter signalizing
+                # that there are no arguments.
+                break
+            else:
+                argtypes.append(self.resolve_type(param.type))
+        obj = FunctionType(format_coord(node.coord), rettype, argtypes, varargs)
+        return obj
 
     def visit_Struct(self, node):
         type = Struct(format_coord(node.coord), node.name)
@@ -273,7 +331,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
             self.add_type(type)
         # return it, so visit_Typedef can handle anonymous structs
         return type
-    
+
     def visit_Enum(self, node):
         type = Enum(format_coord(node.coord), node.name)
         # now, add all values, if there are any

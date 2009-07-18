@@ -1,16 +1,3 @@
-typedef struct {
-    int a;
-    char b;
-    double c[];
-} *Foobar;
+typedef int(*FuncPtr)(float, char, char);
 
-typedef enum Yummy {
-    A,
-    B,
-    THREE = 3,
-    FOUR,
-    DEADBEEF = 0xdeadbeef,
-    NEXT
-} Yummy;
-
-int *testfunc(Foobar arg, ...);
+int *testfunc(FuncPtr testy, ...);
