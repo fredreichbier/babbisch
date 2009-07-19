@@ -44,7 +44,7 @@ def main():
             if not os.path.isfile(filename):
                 parser.error("'%s' is not a valid filename" % filename)
             else:
-                ast = cache[filename]
+                ast = cache[os.path.abspath(filename)]
                 visitor.visit(ast)
     finally:
         if options.cache:

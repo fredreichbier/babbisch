@@ -13,8 +13,9 @@ class ASTCache(dict):
     # TODO: store the mtime when loading the header. Otherwise it is
     # possible to store a mtime that is more recent than the header.
 
-    def __init__(self, filename=CACHE_FILENAME, load=True):
+    def __init__(self, filename=CACHE_FILENAME, load=True, use_cpp=True):
         self.filename = filename
+        self.use_cpp = use_cpp
         if load:
             self.load()
 
@@ -38,7 +39,7 @@ class ASTCache(dict):
             to_save[header] = (os.stat(header).st_mtime, ast)
         with open(self.filename, 'wb') as f:
             pickle.dump(to_save, f)
-    
+
     def __missing__(self, key):
-        self[key] = ast = parse_file(key)
+        self[key] = ast = parse_file(key, use_cpp=self.use_cpp)
         return ast
