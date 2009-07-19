@@ -13,9 +13,10 @@ class ASTCache(dict):
     # TODO: store the mtime when loading the header. Otherwise it is
     # possible to store a mtime that is more recent than the header.
 
-    def __init__(self, filename=CACHE_FILENAME):
+    def __init__(self, filename=CACHE_FILENAME, load=True):
         self.filename = filename
-        self.load()
+        if load:
+            self.load()
 
     def load(self):
         self.clear()
