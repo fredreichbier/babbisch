@@ -161,6 +161,7 @@ class CtypesClient(ObjectVisitor):
 
         self.prolog = []
         self.epilog = []
+        self.all_names = []
 
         self._build_prolog()
 
@@ -191,7 +192,14 @@ class CtypesClient(ObjectVisitor):
 
     def add_wrapper_class(self, tag, pycls):
         self.wrapper_classes[pycls.name] = pycls
-        self.wrappers[tag] = pycls.name
+        self.set_wrapper(tag, pycls.name)
+        self.export_name(pycls.name)
+
+    def set_wrapper(self, tag, name):
+        self.wrappers[tag] = name
+
+    def export_name(self, name):
+        self.all_names.append(name)
 
     def visit_all(self):
         self.visit_objects(self.objects)
@@ -199,6 +207,7 @@ class CtypesClient(ObjectVisitor):
     def generate_code(self):
         return (self.prolog
                 + [c.generate_code() for c in self.wrapper_classes.itervalues()]
+                + ['__all__ = [%s]' % (', '.join("'%s'" % n for n in self.all_names))]
                 + self.epilog)
 
     def resolve_object(self, type):
@@ -216,12 +225,12 @@ class CtypesClient(ObjectVisitor):
             if target.startswith('CFUNCTYPE'): # it's a CFUNCTYPE.
                 # function pointers in ctypes are not POINTER(CFUNCTYPE(...)),
                 # but just CFUNCTYPE.
-                self.wrappers[tag] = target
+                self.set_wrapper(tag, target)
             elif target == 'c_char':
                 # it's a char array = a string.
-                self.wrappers[tag] = 'c_char_p'
+                self.set_wrapper(tag, 'c_char_p')
             else:
-                self.wrappers[tag] = 'POINTER(%s)' % target
+                self.set_wrapper(tag, 'POINTER(%s)' % target)
         elif klass == 'Struct':
             # it's a struct, I suggest it's unnamed?
             self.visit_Struct(type)
@@ -238,10 +247,10 @@ class CtypesClient(ObjectVisitor):
                 type = 'POINTER(%s)' % arrtype
             else:
                 type = '%s * %d' % (arrtype, type['size'])
-            self.wrappers[tag] = type
+            self.set_wrapper(tag, type)
         elif klass == 'FunctionType':
             pytype = 'CFUNCTYPE(%s)' % ', '.join(map(self.resolve_type, [type['rettype']] + type['argtypes']))
-            self.wrappers[type['tag']] = pytype
+            self.set_wrapper(type['tag'], pytype)
         else:
             assert 0, "OH NO, what is that? %r" % type
 
