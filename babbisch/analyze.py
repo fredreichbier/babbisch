@@ -150,29 +150,29 @@ class Pointer(Type):
         return state
 
 class Function(Object):
-    def __init__(self, coord, name, rettype, argtypes, varargs=False, storage=None):
+    def __init__(self, coord, name, rettype, arguments, varargs=False, storage=None):
         Object.__init__(self, coord, format_tag(name))
         if storage is None:
             storage = []
         self.name = name
         self.rettype = rettype
-        self.argtypes = argtypes
+        self.arguments = arguments
         self.varargs = varargs
         self.storage = storage
 
     def get_state(self, objects):
         state = Object.get_state(self, objects)
-        # only include argtypes that are not well-known,
+        # only include arguments that are not well-known,
         # otherwise just use the tag as value.
-        argtypes = []
-        for name, type in self.argtypes.iteritems():
-            argtypes.append((name, format_type(type, objects)))
+        arguments = []
+        for name, type in self.arguments.iteritems():
+            arguments.append((name, format_type(type, objects)))
         # same for rettype
         rettype = format_type(self.rettype, objects)
         state.update({
             'name': self.name,
             'rettype': rettype,
-            'argtypes': argtypes,
+            'arguments': arguments,
             'varargs': self.varargs,
             'storage': self.storage,
             })
@@ -412,7 +412,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         # first, handle the return type
         rettype = self.resolve_type(node.type)
         # then, handle the argument types
-        argtypes = odict()
+        arguments = odict()
         varargs = False
         for param in node.args.params:
             if isinstance(param, c_ast.EllipsisParam):
@@ -425,8 +425,8 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
                 # that there are no arguments.
                 break
             else:
-                argtypes[param.name] = self.resolve_type(param.type)
-        obj = Function(format_coord(node.coord), name, rettype, argtypes, varargs)
+                arguments[param.name] = self.resolve_type(param.type)
+        obj = Function(format_coord(node.coord), name, rettype, arguments, varargs)
         if name is not None:
             self.add_type(obj)
         return obj

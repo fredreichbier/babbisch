@@ -9,37 +9,40 @@ from pycparser import parse_file
 
 CACHE_FILENAME = 'header.cache'
 
-class ASTCache(dict):
+class ASTCache(object):
     # TODO: store the mtime when loading the header. Otherwise it is
     # possible to store a mtime that is more recent than the header.
 
     def __init__(self, filename=CACHE_FILENAME, load=True, use_cpp=True):
         self.filename = filename
         self.use_cpp = use_cpp
+        self.headers = {} # filename: (mtime, ast)
         if load:
             self.load()
 
     def load(self):
-        self.clear()
+        self.headers.clear()
         try:
             with open(self.filename, 'rb') as f:
-                for header, (mtime, ast) in pickle.load(f).iteritems():
-                    # if the last modification time is more recent than
-                    # in the cache, reload it
-                    if os.stat(header).st_mtime > mtime:
-                        self[header]
-                    else:
-                        self[header] = ast
+                self.headers =  pickle.load(f)
         except IOError:
             pass
 
     def save(self):
-        to_save = {}
-        for header, ast in self.iteritems():
-            to_save[header] = (os.stat(header).st_mtime, ast)
         with open(self.filename, 'wb') as f:
-            pickle.dump(to_save, f)
+            pickle.dump(self.headers, f)
 
-    def __missing__(self, key):
-        self[key] = ast = parse_file(key, use_cpp=self.use_cpp)
-        return ast
+    def load_header(self, filename):
+        self.headers[filename] = (
+                os.lstat(filename).st_mtime,
+                parse_file(filename, use_cpp=self.use_cpp)
+                )
+
+    def __getitem__(self, key):
+        if key in self.headers:
+            if os.lstat(key).st_mtime > self.headers[key][0]:
+                self.load_header(key)
+        else:
+            self.load_header(key)
+        return self.headers[key][1]
+
