@@ -215,15 +215,30 @@ TYPES = ('void',
          'unsigned int',
          'signed long',
          'unsigned long',
-         'double',
+         'long long',
+         'unsigned long long',
          'float',
+         'double',
+         'long double',
          )
+
 SYNONYMS = {
         'char': 'signed char',
         'byte': 'signed byte',
         'short': 'signed short',
         'int': 'signed int',
+
         'long': 'signed long',
+        'long int': 'signed long',
+        'unsigned long int': 'unsigned long',
+
+        'long long int': 'long long',
+        'signed long long int': 'long long',
+        'unsigned long long int': 'unsigned long long',
+
+        'short int': 'short',
+        'signed short int': 'short',
+        'unsigned short int': 'unsigned short',
         }
 
 def _get_builtins():
@@ -245,11 +260,20 @@ def _int(value):
     else:
         return int(value)
 
+def _char(value):
+    if value.startswith("'"):
+        return ord(value[1])
+    else:
+        return _int(value)
+
 CONSTANT_TYPES = {
         'int': _int,
+        'char': _char,
         }
 
 def resolve_constant(node):
+    if isinstance(node, c_ast.BinaryOp):
+        node.show()
     return CONSTANT_TYPES[node.type](node.value)
 
 class AnalyzingVisitor(c_ast.NodeVisitor):
@@ -342,18 +366,19 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         # Here, argtypes is just a list (no names included)
         argtypes = []
         varargs = False
-        for param in node.args.params:
-            if isinstance(param, c_ast.EllipsisParam):
-                varargs = True
-            elif (len(node.args.params) == 1
-                    and param.name is None
-                    and isinstance(param.type.type, c_ast.IdentifierType)
-                    and param.type.type.names == ['void']):
-                # it's the single `void` parameter signalizing
-                # that there are no arguments.
-                break
-            else:
-                argtypes.append(self.resolve_type(param.type))
+        if node.args is not None:
+            for param in node.args.params:
+                if isinstance(param, c_ast.EllipsisParam):
+                    varargs = True
+                elif (len(node.args.params) == 1
+                        and param.name is None
+                        and isinstance(param.type.type, c_ast.IdentifierType)
+                        and param.type.type.names == ['void']):
+                    # it's the single `void` parameter signalizing
+                    # that there are no arguments.
+                    break
+                else:
+                    argtypes.append(self.resolve_type(param.type))
         obj = FunctionType(format_coord(node.coord), rettype, argtypes, varargs)
         return obj
 
@@ -414,18 +439,19 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         # then, handle the argument types
         arguments = odict()
         varargs = False
-        for param in node.args.params:
-            if isinstance(param, c_ast.EllipsisParam):
-                varargs = True
-            elif (len(node.args.params) == 1
-                    and param.name is None
-                    and isinstance(param.type.type, c_ast.IdentifierType)
-                    and param.type.type.names == ['void']):
-                # it's the single `void` parameter signalizing
-                # that there are no arguments.
-                break
-            else:
-                arguments[param.name] = self.resolve_type(param.type)
+        if node.args is not None:
+            for param in node.args.params:
+                if isinstance(param, c_ast.EllipsisParam):
+                    varargs = True
+                elif (len(node.args.params) == 1
+                        and param.name is None
+                        and isinstance(param.type.type, c_ast.IdentifierType)
+                        and param.type.type.names == ['void']):
+                    # it's the single `void` parameter signalizing
+                    # that there are no arguments.
+                    break
+                else:
+                    arguments[param.name] = self.resolve_type(param.type)
         obj = Function(format_coord(node.coord), name, rettype, arguments, varargs)
         if name is not None:
             self.add_type(obj)

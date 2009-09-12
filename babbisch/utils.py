@@ -35,7 +35,11 @@ class ASTCache(object):
     def load_header(self, filename):
         self.headers[filename] = (
                 os.lstat(filename).st_mtime,
-                parse_file(filename, use_cpp=self.use_cpp)
+                parse_file(filename,
+                    use_cpp=self.use_cpp,
+                    cpp_args='-U __GNUC__')
+                # we're undefining __GNUC__ because we can't parse gcc
+                # extensions like __attribute__.
                 )
 
     def __getitem__(self, key):
