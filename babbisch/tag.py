@@ -7,17 +7,19 @@ class Token(object):
     END = 5
 
 def lex(next):
+    running = True
+
     def _shift(chars):
         char = next()
         try:
             while char in chars:
                 char = next()
         except StopIteration:
-            pass
+            running = False
         return char
 
     char = next()
-    while True:
+    while running:
         if char == '(':
             yield (Token.LPAREN, char)
             char = _shift((' ',))
@@ -35,7 +37,7 @@ def lex(next):
                     s += char
                     char = next()
             except StopIteration:
-                pass
+                running = False
             yield (Token.IDENTIFIER, s)
     yield (Token.END, '')
 
@@ -70,3 +72,13 @@ def parse(stream):
 
 def parse_string(s):
     return parse(lex(iter(s).next))
+
+def translate(parsed):
+    """
+        translate a tuple (mod, args) to a string
+    """
+    if isinstance(parsed, tuple):
+        return '%s(%s)' % (parsed[0], ', '.join(map(translate, parsed[1])))
+    else:
+        return parsed
+

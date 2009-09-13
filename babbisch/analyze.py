@@ -293,10 +293,12 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
 
     def visit_Decl(self, node):
         # visit type node and set storage info if type is a FuncDecl.
-        # TODO: what to do otherwise?
         if isinstance(node.type, c_ast.FuncDecl):
             obj = self.visit(node.type)
             obj.storage.extend(node.storage)
+        else:
+            # I think we'll just visit the type node. TODO: Really do that?
+            self.visit(node.type)
 
     def visit_FuncDef(self, node):
         # FuncDefs contain FuncDecls. Just handle it if
