@@ -26,6 +26,20 @@ def main():
             default='json',
             help="defines the output format to use [supported: json]",
             )
+    parser.add_option('-i', '--include-header',
+            action='append',
+            dest='include_headers',
+            default=[],
+            help="""include headers whose filename matches REGEX""",
+            metavar='REGEX'
+            )
+    parser.add_option('-x', '--exclude-header',
+            action='append',
+            dest='exclude_headers',
+            default=[],
+            help="""exclude headers whose filename matches REGEX (even if they would be included by the -i option)""",
+            metavar='REGEX'
+            )
     parser.add_option('-o',
             action='store',
             dest='output',
@@ -44,7 +58,10 @@ def main():
             if not os.path.isfile(filename):
                 parser.error("'%s' is not a valid filename" % filename)
             else:
-                ast = cache[os.path.abspath(filename)]
+                path = os.path.abspath(filename)
+                ast = cache.get_header(path,
+                        tuple(options.include_headers),
+                        tuple(options.exclude_headers))
                 visitor.visit(ast)
     finally:
         if options.cache:

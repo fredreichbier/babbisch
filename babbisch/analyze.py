@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import operator
+
 from pycparser import c_parser, c_ast, parse_file
 
 from .odict import odict
@@ -227,6 +229,7 @@ SYNONYMS = {
         'byte': 'signed byte',
         'short': 'signed short',
         'int': 'signed int',
+        'unsigned': 'int',
 
         'long': 'signed long',
         'long int': 'signed long',
@@ -271,10 +274,40 @@ CONSTANT_TYPES = {
         'char': _char,
         }
 
-def resolve_constant(node):
+BINARY_OPERATORS = {
+        '+': operator.add,
+        '-': operator.sub,
+        '*': operator.mul,
+        '/': operator.div,
+        '<<': operator.lshift,
+        '>>': operator.rshift,
+        '&': operator.and_,
+        '|': operator.or_,
+        '^': operator.xor,
+        }
+UNARY_OPERATORS = {
+        '+': lambda x: abs(x),
+        '-': operator.neg,
+        '~': operator.invert,
+        }
+
+def resolve_constant(node, resolver=None):
     if isinstance(node, c_ast.BinaryOp):
+        return BINARY_OPERATORS[node.op](
+                resolve_constant(node.left, resolver),
+                resolve_constant(node.right, resolver)
+                )
+    elif isinstance(node, c_ast.UnaryOp):
+        return UNARY_OPERATORS[node.op](
+                resolve_constant(node.expr, resolver)
+                )
+    elif isinstance(node, c_ast.Constant):
+        return CONSTANT_TYPES[node.type](node.value)
+    elif isinstance(node, c_ast.ID):
+        return resolver(node.name)
+    else:
         node.show()
-    return CONSTANT_TYPES[node.type](node.value)
+        assert 0, "Don't know %s" % node
 
 class AnalyzingVisitor(c_ast.NodeVisitor):
     def __init__(self, builtins=BUILTINS):
@@ -408,13 +441,18 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
 
     def visit_Enum(self, node):
         type = Enum(format_coord(node.coord), node.name)
+        def _resolve(name):
+            return int(type.members[name]) # TODO: what about non-ints?
         # now, add all values, if there are any
         if node.values is not None:
             value = 0
             for enumerator in node.values.enumerators:
                 name = enumerator.name
                 if enumerator.value is not None:
-                    value = resolve_constant(enumerator.value)
+                    if isinstance(enumerator.value, c_ast.ID):
+                        value = type.members[enumerator.value.name]
+                    else:
+                        value = resolve_constant(enumerator.value, _resolve)
                 type.add_member(name, value)
                 value += 1
         # if the enum is not anonymous, add it to
