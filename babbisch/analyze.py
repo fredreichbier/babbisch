@@ -310,19 +310,30 @@ def resolve_constant(node, resolver=None):
         assert 0, "Don't know %s" % node
 
 class AnalyzingVisitor(c_ast.NodeVisitor):
-    def __init__(self, builtins=BUILTINS):
+    def __init__(self, builtins=BUILTINS, include=None):
         self.objects = odict() # typedefs, structs, unions, enums, stuff, functions go here
         self.objects.update(builtins)
+        self.include = include
+
+    def _include_object(self, obj):
+        if (obj.coord is not None and self.include is not None):
+            if not self.include(obj.coord['file']):
+                return False
+        return True
 
     def to_json(self, **kwargs):
         import json
-        return json.dumps(self.objects.items(),
+        return json.dumps(
+                [(k, v) for k, v in self.objects.iteritems() if self._include_object(v)],
                 default=lambda obj: obj.get_state(self.objects),
                 **kwargs)
 
     def generic_visit(self, node):
         # new generic visit method: just do nothing for unknown nodes.
         pass
+
+    def visit(self, node):
+        return c_ast.NodeVisitor.visit(self, node)
 
     def visit_Decl(self, node):
         # visit type node and set storage info if type is a FuncDecl.

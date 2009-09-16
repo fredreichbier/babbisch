@@ -5,6 +5,7 @@ from optparse import OptionParser
 
 from babbisch.utils import ASTCache
 from babbisch.analyze import AnalyzingVisitor
+from babbisch.filter import include_exclude
 
 USAGE = 'usage: %prog [options] headerfile...'
 FORMATS = {
@@ -50,18 +51,21 @@ def main():
     if not args:
         parser.error("You have to specify at least one input file")
 
+    options.include_headers.extend(args)
     # read and analyze all source files
-    visitor = AnalyzingVisitor()
-    cache = ASTCache(load=options.cache)
+    visitor = AnalyzingVisitor(
+            include=include_exclude(options.include_headers, options.exclude_headers)
+            )
+    cache = ASTCache(
+            load=options.cache,
+            )
     try:
         for filename in args:
             if not os.path.isfile(filename):
                 parser.error("'%s' is not a valid filename" % filename)
             else:
                 path = os.path.abspath(filename)
-                ast = cache.get_header(path,
-                        tuple(options.include_headers),
-                        tuple(options.exclude_headers))
+                ast = cache.get_header(path)
                 visitor.visit(ast)
     finally:
         if options.cache:

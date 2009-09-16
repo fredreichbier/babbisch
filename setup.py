@@ -11,5 +11,9 @@ setup(
             'console_scripts': [
                 'babbisch = babbisch:main',
             ]
-    }
+    },
+    zip_safe=False,
+    package_data={
+            'babbisch': 'headers',
+        },
 )

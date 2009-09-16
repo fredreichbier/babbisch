@@ -50,5 +50,4 @@ def filter_headers(in_text, include):
         if not unwanted:
             out_text += in_text[idx]
         idx += 1
-    print out_text
     return out_text
