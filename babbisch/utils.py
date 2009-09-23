@@ -21,6 +21,9 @@ def parse_file(filename, use_cpp=True):
                 'cpp',
                 '-U __GNUC__',
                 '-isystem', os.path.join(HEADER_REPLACEMENTS, 'usr', 'include'),
+                # We just provide with a custom (but hackish) va_list
+                # typedef in our own .h
+                '-include', os.path.join(HEADER_REPLACEMENTS, 'valist.h'),
                 filename,
                 ]
         print path_list
