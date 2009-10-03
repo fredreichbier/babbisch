@@ -491,7 +491,7 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         arguments = odict()
         varargs = False
         if node.args is not None:
-            for param in node.args.params:
+            for index, param in enumerate(node.args.params):
                 if isinstance(param, c_ast.EllipsisParam):
                     varargs = True
                 elif (len(node.args.params) == 1
@@ -502,7 +502,10 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
                     # that there are no arguments.
                     break
                 else:
-                    arguments[param.name] = self.resolve_type(param.type)
+                    argname = param.name
+                    if argname is None:
+                        argname = '!Unnamed%d' % index
+                    arguments[argname] = self.resolve_type(param.type)
         obj = Function(format_coord(node.coord), name, rettype, arguments, varargs)
         if name is not None:
             self.add_type(obj)
