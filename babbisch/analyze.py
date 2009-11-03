@@ -322,7 +322,10 @@ class AnalyzingVisitor(c_ast.NodeVisitor):
         return True
 
     def to_json(self, **kwargs):
-        import json
+        try:
+            import simplejson as json
+        except ImportError:
+            import json
         return json.dumps(
                 [(k, v) for k, v in self.objects.iteritems() if self._include_object(v)],
                 default=lambda obj: obj.get_state(self.objects),
